@@ -1,0 +1,7 @@
+cd C:\Users\Admin\Documents\Visual Studio 2015\Projects\MPITest\Debug
+mpiexec.exe -n 4 MPITest.exe
+
+cd C:\Users\Admin\source\repos\MPITest\Debug
+mpiexec.exe -n 4 MPITest.exe
+
+http://rsusu1.rnd.runnet.ru/tutor/method/m2/page11.html
