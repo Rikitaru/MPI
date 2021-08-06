@@ -1,0 +1,1119 @@
+//#include "mpi.h"
+#include <stdio.h>
+#include <math.h>
+#include <stdlib.h>
+#include <iostream>
+#include <ctime>
+#include <mpi.h>
+using namespace std;
+//int command = 0;
+double f(double a) /* Функция интеграла */
+{
+	return (4.0 / (1.0 + a*a));
+}
+int test()
+{
+	int done = 0;		//флаг окончания вычислений
+	int n;			//параметр погрешности вычисления
+	int myid;		//порядковый номер задачи
+	int numprocs;	//общее количество задач
+	int i;			//параметр цикла
+	double PI25DT = 3.141592653589793238462643;/* Эталонное значение П */
+	double mypi; //текущее значение П
+	double pi;	 //эталонное значение П
+	double h;	 //шаг интеграла
+	double sum;  //сумма при вычислении интеграла
+	double x;    //текущий аргумент подынтегральной функции
+	double startwtime = 0.0, endwtime;
+	int namelen;
+	char processor_name[MPI_MAX_PROCESSOR_NAME];
+	/* Получаем общее количество запущенных процессов */
+	MPI_Comm_size(MPI_COMM_WORLD, &numprocs);
+	/* Получаем порядковый номер текущего процесса */
+	MPI_Comm_rank(MPI_COMM_WORLD, &myid);
+	/*получение названия процеса */
+	MPI_Get_processor_name(processor_name, &namelen);
+	fprintf(stderr, "Process %d on %s\n", myid, processor_name);
+	n = 0;
+	if (myid == 0) {
+		printf("Enter the number of intervals: (0 quits) ");
+		fflush(stdout); /*Для сброса буфера, связывания правильного вывода принт ф и ввода скан ф*/
+		scanf_s("%d", &n);
+
+		/* Засекаем время начала вычисления */
+		startwtime = MPI_Wtime();
+	}
+	/* Рассылаем содержимое буфера задачи во все остальные.
+	Эта функция коллективная, пока ее не запустят все процессы - ожидание.
+	Это широковещательная функция передает всем процессам n типа инт от нулевого процесса (главного)*/
+	MPI_Bcast(&n, 1, MPI_INT, 0, MPI_COMM_WORLD);
+	if (n == 0) done = 1;
+	else {
+		h = 1.0 / (double)n;
+		sum = 0.0;
+		/*Здесь происходит разбиение диапазонов, точнее каждый процесс выполнит свою часть работы*/
+		for (i = myid + 1; i <= n; i += numprocs)
+		{
+			x = h * ((double)i - 0.5); sum += f(x);
+		}
+		mypi = h * sum;//каждый процесс получит свое значение
+					   /* Массив с результатами размещается в данной задаче.
+					   Данная функция собирает переменную со всех процессов, по суммированию(MPI_SUM),
+					   и результат сохраняется в пи нулевого процесса. По итогу выполнения этой функции
+					   у нулевого процесса будет лежать в ПИ итоговое поссчитанное значение. У всех остальных
+					   процессов эта переменная ПИ так и останется начального значения*/
+		MPI_Reduce(&mypi, &pi, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
+		if (myid == 0) {
+			printf("pi is approximately %.16f, Error is %.16f\n",
+				pi, fabs(pi - PI25DT));
+
+			endwtime = MPI_Wtime();/*Засекаем время окончания вычисления */
+								   /* Вывод общего времени вычисления */
+			printf("wall clock time = %f\n", endwtime - startwtime);
+		}
+	}
+	MPI_Finalize(); /* Нормальное закрытие библиотеки */
+	return 0;
+}
+
+//static int gsize, myid;
+//#define M 7
+//#define M 40
+#define root 0
+/*
+void initArrayNew(int*a, int m, int k) {
+	int h = m - M; //количество требуемых пустотных данных
+	int kolvo = 0; //количество уже вписанных пустотных данных
+	int inc = 0; //счетчик для присваивания данных
+	for (int i = m - 1; i >= 0; i--) {
+		if ((i%k == 0) && (kolvo < h)) { //если у нас кратный К элемент, то его надо бы сделать пустотным
+//если у нас еще нехватка пустотных, то 
+			kolvo++;
+			a[i] = 11111;//создаем пустотный элемент
+		}
+		else {
+			a[i] = M - inc;
+			inc++;
+		}
+	}
+}
+void initArray(int*a, int m) {
+	int i;
+	for (i = 0; i < m; i++) {
+		a[i] = i + 1;
+	}
+}
+void printArray(int*a, int m) {
+	int i;
+	printf("[ ");
+	for (i = 0; i < m; i++) {
+		if (a[i] != 11111) {
+			printf("%d ", a[i]);
+		}
+		else {
+			printf("NOPE ");
+		}
+	}
+
+	printf("]\n");
+}
+void printArrayOver(int*a, int m) {
+	int i;
+	printf("[ ");
+	if (myid < M) {
+		for (i = 0; i < m; i++) {
+			printf("%d ", a[i]);
+		}
+	}
+	else {
+		printf("The data was supplemented, transmitted, but the excess is not displayed. id = %d ", myid);
+	}
+
+	printf("]\n");
+}
+
+void initArray(unsigned int*a, int m) {
+	int i;
+	for (i = 0; i < m; i++) {
+		a[i] = i+ myid;
+	}
+}
+void printArray(unsigned int*a, int m) {
+	int i;
+	printf("[ ");
+	for (i = 0; i < m; i++) {
+		printf("%u ", a[i]);
+	}
+	printf("]\n");
+}
+*/
+/*if (gsize <1) {
+	if (myid == 0) {
+		printf("Error: 2 and more proceses required\n");
+		fflush(stdout);
+	}
+	MPI_Abort(MPI_COMM_WORLD, MPI_ERR_OTHER);
+}*/
+//первая лаба решенная через функцию MPI_Scatter
+/*
+	int main(int argc, char *argv[]) {
+	int *rbuf;
+	int *sendbuf;
+	int namelen;
+	double startwtime = 0.0, endwtime;
+	char processor_name[MPI_MAX_PROCESSOR_NAME];
+	int k, razmer, l = 0;
+	MPI_Init(&argc, &argv);
+	MPI_Comm_size(MPI_COMM_WORLD, &gsize);
+	MPI_Comm_rank(MPI_COMM_WORLD, &myid);
+	MPI_Get_processor_name(processor_name, &namelen);
+	//printf("Process %d on %s\n", myid, processor_name);
+	fflush(stdout);
+	//gsize = 9;
+	if (myid == 0) {
+		startwtime = MPI_Wtime();
+	}
+	if (M < gsize) {
+		razmer = gsize;
+		k = 1;
+	}
+	else if (M == gsize) {
+		razmer = gsize;
+		k = 1;
+	}
+	else if (M > gsize) {
+		if (gsize == 1) {//случай когда у нас 1 процесс
+			k = M;//всю память ему предоставляем
+			razmer = k;
+		}
+		else{//если у нас несколько процессов
+			l = M / gsize;
+			k = l + 1;//количество ячеек на каждый процесс
+		}
+		if (M%gsize != 0) {//суммарный размер буфера
+			razmer = gsize*k;//M + gsize - l
+		}
+		
+	}
+	rbuf = (int *)malloc(razmer * sizeof(int));
+	if (myid == root) {//0
+		sendbuf = (int *)malloc(razmer * sizeof(int));
+		initArrayNew(sendbuf, razmer, k);
+		printf("Massiv: ");
+		printArray(sendbuf, razmer);
+	}
+
+	MPI_Scatter(sendbuf, k, MPI_INT, rbuf, k, MPI_INT, root, MPI_COMM_WORLD);
+	//printf("id = %d, sendbuf = %d\n", myid, sendbuf[myid]);
+	//printf("rbuf = %d\n", rbuf[0]);
+	printf("Process %d on %s:", myid, processor_name);
+	printArray(rbuf, k);
+	fflush(stdout);
+
+	if (myid == 0) {
+		endwtime = MPI_Wtime();
+		fprintf(stderr, "wall clock time = %f\n", endwtime - startwtime);
+		fflush(stdout);
+	}
+	MPI_Finalize();
+	return 0;
+}
+*/
+
+//первая лаба решенная через функцию MPI_SCATTERV
+/*
+//#define N 7
+int main(int argc, char *argv[])
+{
+	int s = 0; //суммарное количество ячеек + используется при подсчете, как распределить память между процессами
+	int root = 0; //приоритетный процесс
+	int *sendbuf, *rbuf; //отправляемый и принимаемый буфер
+	int stride, *displs, *scounts; //размерность для каждого процесса (если M кратно N) //массив значений первого элемента для каждого процесса // массив количества ячеек для каждого процесса
+	int namelen;
+	char processor_name[MPI_MAX_PROCESSOR_NAME];
+	MPI_Init(&argc, &argv);
+	MPI_Comm_size(MPI_COMM_WORLD, &gsize);
+	int N = gsize; //для тестирования
+	displs = (int *)malloc(gsize * sizeof(int));//начальный первый индекс для каждого процесса
+	scounts = (int *)malloc(gsize * sizeof(int));//показывает количество элементов в каждом процессе
+	MPI_Comm_rank(MPI_COMM_WORLD, &myid);
+	MPI_Get_processor_name(processor_name, &namelen);
+	fprintf(stderr, "Process %d on %s\n", myid, processor_name);
+	fflush(stdout);
+	int k = M / N; //определяем по скольку ячеек выдать каждому процессу
+	int l = M % N; //остаток ячеек, котоырй надо разделить между процессами
+	if ((l > 0) && (k > 0)) {//если остаток имеется и у нас хоть раз поделилось, то разделим между процессами
+		for (int i = 0; i < gsize; i++) { //раздаем всем процесса по k элементов
+			scounts[i] = k;
+			displs[i] = i*k;
+		}
+		for (int i = 0; i < l; i++) {//первым процессам раздаем остаток
+			scounts[i]++;
+		}
+		displs[0] = 0;//пересчитываем диапазон начального элемента для каждого процесса
+		for (int i = 0; i < gsize - 1; i++) {
+			s = s + scounts[i];
+			displs[i + 1] = s;
+		}
+		s = s + scounts[gsize - 1];//M
+		if (myid == 0) {
+			if (s == M) {
+				printf("Distribution successful\n");
+				fflush(stdout);
+			}
+			else {
+				printf("Distribution failed\n");
+				fflush(stdout);
+				MPI_Finalize();//заменить
+				return 0;
+			}
+		}
+	}
+	else if ((l > 0) && (k == 0)) { //когда количество ячеек меньше количества процессов
+		for (int i = 0; i < gsize; i++) { //раздаем всем процесса по k элементов
+			scounts[i] = 1; //раздаем всем по 1
+			displs[i] = i;
+
+		}
+		s = gsize;
+	}
+	else if (l == 0) {//если у нас нет остатка, то есть всем по k
+		stride = k;
+		for (int i = 0; i < gsize; ++i) {
+			scounts[i] = k;
+			displs[i] = i*k;
+		}
+		s = k*gsize;
+
+	}
+	sendbuf = (int *)malloc(s * sizeof(int));
+	rbuf = (int *)malloc(s * sizeof(int));
+	initArray(sendbuf, s);
+	MPI_Scatterv(sendbuf, scounts, displs, MPI_INT, rbuf, s, MPI_INT, root, MPI_COMM_WORLD);
+
+	if (myid >= M) {
+		printArrayOver(rbuf, scounts[myid]);
+	}
+	else {
+		printArray(rbuf, scounts[myid]);
+	}
+	fflush(stdout);
+	MPI_Finalize();
+	return 0;
+}*/
+
+//Вторая лаба решенная только через функцию MPI_Reduce варианта 9
+/*
+int main(int argc, char *argv[]) {
+	unsigned int *rbuf;
+	unsigned int *sendbuf;
+	int namelen;
+	double startwtime = 0.0, endwtime;
+	char processor_name[MPI_MAX_PROCESSOR_NAME];
+	MPI_Init(&argc, &argv);
+	MPI_Comm_size(MPI_COMM_WORLD, &gsize);
+	MPI_Comm_rank(MPI_COMM_WORLD, &myid);
+	MPI_Get_processor_name(processor_name, &namelen);
+	printf("Process %d on %s\n", myid, processor_name);
+	sendbuf = (unsigned int *)malloc(M * sizeof(unsigned int));
+	initArray(sendbuf, M);
+	printf("Massiv: ");
+	printArray(sendbuf, M);
+	if (myid == root) {
+		startwtime = MPI_Wtime();
+		rbuf = (unsigned int *)malloc(M * sizeof(unsigned int));
+	}
+	MPI_Reduce(sendbuf, rbuf, M, MPI_UNSIGNED, MPI_BAND, root, MPI_COMM_WORLD);
+	if (myid == root) {
+		printf("\nResult Massiv: ");
+		printArray(rbuf, M);
+	}
+	fflush(stdout);
+	if (myid == 0) {
+		endwtime = MPI_Wtime();
+		fprintf(stderr, "wall clock time = %f\n", endwtime - startwtime);
+		fflush(stdout);
+	}
+	MPI_Finalize();
+	return 0;
+}
+*/
+
+//Третья лаба
+/*
+#define N 5
+#define M 10
+void initArrayNew(unsigned int*a, int id) {
+	for (int i=0; i <M; i++) {
+		if (id>=gsize-1) { //если у нас кратный К элемент, то его надо бы сделать пустотны
+			a[i] = 11111;//создаем пустотный элемент
+		}
+		else {
+			a[i] = rand() % 20;
+		}
+	}
+}
+void initArrayDouble(unsigned int*a) {
+	for (int i = 0; i < M; i++)
+	{
+		a[i] = rand() % 20;
+	}
+}
+void printArray(unsigned int*a, int m) {
+	printf("%d)Process %d Massiv:", command, myid);
+	command++;
+	printf("[ ");
+	for (int i = 0; i < m; i++) {
+		if (a[i] != 11111) {
+			printf("%u ", a[i]);
+		}
+		else {
+			printf("NOPE ");
+		}
+	}
+	printf("]\n");
+	fflush(stdout);
+}
+void sort(unsigned int*a) {
+	// Сортировка массива пузырьком
+	for (int i = 0; i < M - 1; i++) {
+		for (int j = 0; j < M - i - 1; j++) {
+			if (a[j] < a[j + 1]) {
+				// меняем элементы местами
+				unsigned int temp = a[j];
+				a[j] = a[j + 1];
+				a[j + 1] = temp;
+			}
+		}
+	}
+}
+int main(int argc, char *argv[])
+{
+	int kolvo_str;
+	int s = 0; //суммарное количество ячеек + используется при подсчете, как распределить память между процессами
+	unsigned int sendbuf[N][M];
+	unsigned int *rbuf;
+	int stride, *displs, *scounts; //размерность для каждого процесса (если M кратно N) //массив значений первого элемента для каждого процесса // массив количества ячеек для каждого процесса
+	int namelen;
+	char processor_name[MPI_MAX_PROCESSOR_NAME];
+	MPI_Init(&argc, &argv);
+	MPI_Comm_size(MPI_COMM_WORLD, &gsize);
+	displs = (int *)malloc(gsize * sizeof(int));//начальный первый индекс для каждого процесса
+	scounts = (int *)malloc(gsize * sizeof(int));//показывает количество элементов в каждом процессе
+	MPI_Comm_rank(MPI_COMM_WORLD, &myid);
+	MPI_Get_processor_name(processor_name, &namelen);
+	//gsize = 2;
+	int k = N / gsize; //определяем по скольку ячеек выдать каждому процессу
+	int l = N % gsize; //остаток ячеек, котоырй надо разделить между процессами
+	if ((l > 0) && (k > 0)) {//если остаток имеется и у нас хоть раз поделилось, то разделим между процессами
+		for (int i = 0; i < gsize; i++) { //раздаем всем процесса по k элементов
+			scounts[i] = k;
+			displs[i] = i*k;
+		}
+		for (int i = 0; i < l; i++) {//первым процессам раздаем остаток
+			scounts[i]++;
+		}
+		displs[0] = 0;//пересчитываем диапазон начального элемента для каждого процесса
+		for (int i = 0; i < gsize - 1; i++) {
+			s = s + scounts[i];
+			displs[i + 1] = s;
+		}
+		s = M*3;//s + scounts[gsize - 1];//M
+		//if (myid == 0) {
+		//	if (s == N) {
+		//		printf("Distribution successful\n");
+		//		fflush(stdout);
+		//	}
+		//	else {
+		//		printf("Distribution failed\n");
+		//		fflush(stdout);
+		//		MPI_Finalize();//заменить
+		//		return 0;
+		//	}
+		//}
+	}
+	else if ((l > 0) && (k == 0)) { //когда количество ячеек меньше количества процессов
+		for (int i = 0; i < gsize; i++) { //раздаем всем процесса по k элементов
+			scounts[i] = 1; //раздаем всем по 1
+			displs[i] = i;
+		}
+		//for (int i = N; i < gsize; i++) { //раздаем всем процесса по k элементов
+		//	scounts[i] = 0; //раздаем всем по 1
+		//	displs[i] = displs[N-1];
+		//}
+		s = M; //N gsize
+	}
+	else if (l == 0) {//если у нас нет остатка, то есть всем по k
+		stride = k;
+		for (int i = 0; i < gsize; ++i) {
+			scounts[i] = k;
+			displs[i] = i*k;
+		}
+		s = k*gsize*M;
+	}
+
+	if (myid < N) {
+		kolvo_str = scounts[myid];
+	}
+	else {
+		kolvo_str = 0;
+	}
+	//printf("id  %d kolvo_str %d:\n", myid, kolvo_str);
+	fflush(stdout);
+	//int MPI_BARRIER(MPI_COMM_WORLD);
+	if (myid == 0) {
+		printf("%d)Process %d on %s The original Massiv:\n", command, myid, processor_name);
+		fflush(stdout);
+		command++;
+		if (((l > 0) && (k > 0))) {
+			for (int i = 0; i < N; ++i) {
+				initArrayDouble(sendbuf[i]);
+				printArray(sendbuf[i], M);
+				fflush(stdout);
+			}
+		}
+		if (((l > 0) && (k == 0))) {
+			for (int i = 0; i < N; ++i) {
+				initArrayNew(sendbuf[i], i);
+				printArray(sendbuf[i], M);
+				fflush(stdout);
+			}
+		}
+		if (l == 0) {
+			for (int i = 0; i < N; ++i){
+				initArrayDouble(sendbuf[i]);
+				printArray(sendbuf[i], M);
+				fflush(stdout);
+			}
+		}
+		for (int i = 0; i < gsize; ++i) {
+			scounts[i] *= M;
+			displs[i] *= M;
+		}
+	}
+	rbuf = (unsigned int*)malloc(s * sizeof(unsigned int));
+	MPI_Scatterv(sendbuf, scounts, displs, MPI_UNSIGNED, rbuf, s, MPI_UNSIGNED, root, MPI_COMM_WORLD);
+	for (int i = 0; i < kolvo_str; ++i) {
+		//printf("id %d kolvo_str %d:\n", myid, kolvo_str);
+		printArray(&rbuf[i*M], M);
+	}
+	for (int i = 0; i < kolvo_str; ++i) {
+	sort(&rbuf[i*M]);
+	}
+	if (myid == 0) {
+		printf("New Massiv:\n");
+		fflush(stdout);
+	}
+	for (int i = 0; i < kolvo_str; ++i) {
+		printf("%d)Process %d on %s Massiv:", command, myid, processor_name);
+		command++;
+		printArray(&rbuf[i*M], M);
+	}
+
+	MPI_Finalize();
+	return 0;
+}
+*/
+
+//первая лаба 1 варик
+/*
+#include "mpi.h"
+#include <stdio.h>
+#include <math.h>
+#include <stdlib.h>
+#define M 3
+#define root 0
+static int gsize, myid;
+void initArrayNew(int* a) {
+	for (int i = 0; i < M; i++) {
+		a[i] = i;
+	}
+}
+void printArray(int* a) {
+	printf("[ ");
+	for (int i = 0; i < M; i++) {
+		printf("%d ", a[i]);
+	}
+	printf("]\n");
+}
+int main(int argc, char* argv[]) {
+	int namelen;
+	double startwtime = 0.0, endwtime = 0.0;
+	char processor_name[MPI_MAX_PROCESSOR_NAME];
+	MPI_Init(&argc, &argv);
+	MPI_Comm_size(MPI_COMM_WORLD, &gsize);
+	MPI_Comm_rank(MPI_COMM_WORLD, &myid);
+	MPI_Get_processor_name(processor_name, &namelen);
+	MPI_Status Status;
+	if (myid == root) {
+		int* sendbuf;
+		startwtime = MPI_Wtime();
+		sendbuf = (int*)malloc(M * sizeof(int));
+		initArrayNew(sendbuf);
+		printf("Process %d on %s\n", myid, processor_name);
+		printf("Massiv: ");
+		printArray(sendbuf);
+		fflush(stdout);
+		for (int i = 1; i < gsize; ++i) {
+			MPI_Send(sendbuf, M, MPI_INT, i, 111, MPI_COMM_WORLD);
+		}
+	}
+	else {
+		int* rbuf;
+		rbuf = (int*)malloc(M * sizeof(int));
+		MPI_Recv(rbuf, M, MPI_INT, root, 111, MPI_COMM_WORLD, &Status);
+		printf("Process %d on %s:", myid, processor_name);
+		printArray(rbuf);
+	}
+	int MPI_BARRIER(MPI_COMM_WORLD);
+	if (myid == 0) {
+		endwtime = MPI_Wtime();
+		fprintf(stderr, "wall clock time = %f\n", endwtime - startwtime);
+		fflush(stdout);
+	}
+	MPI_Finalize();
+	return 0;
+}*/
+
+//вторая лаба 1 варик
+/*
+#include "mpi.h"
+#include <stdio.h>
+#include <math.h>
+#include <stdlib.h>
+#define M 10
+#define root 0
+static int gsize, myid;
+void initArray(int* a) {
+	int i;
+	for (i = 0; i < M; i++) {
+		a[i] = i + myid;
+	}
+}
+void printArray(int* a) {
+	int i;
+	printf("[ ");
+	for (i = 0; i < M; i++) {
+		printf("%u ", a[i]);
+	}
+	printf("]\n");
+}
+int main(int argc, char* argv[]) {
+	int* rbuf;
+	rbuf = (int*)malloc(M * sizeof(int));
+	int* sendbuf;
+	int namelen;
+	double startwtime = 0.0, endwtime;
+	char processor_name[MPI_MAX_PROCESSOR_NAME];
+	MPI_Init(&argc, &argv);
+	MPI_Comm_size(MPI_COMM_WORLD, &gsize);
+	MPI_Comm_rank(MPI_COMM_WORLD, &myid);
+	MPI_Get_processor_name(processor_name, &namelen);
+	printf("Process %d on %s\n", myid, processor_name);
+	sendbuf = (int*)malloc(M * sizeof(int));
+	initArray(sendbuf);
+	printf("Massiv: ");
+	printArray(sendbuf);
+	if (myid == root) {
+		startwtime = MPI_Wtime();
+
+	}
+
+	MPI_Reduce(sendbuf, rbuf, M, MPI_INT, MPI_MAX, root, MPI_COMM_WORLD);
+	if (myid == root) {
+		printf("\nResult Massiv: ");
+		printArray(rbuf);
+	}
+	fflush(stdout);
+	if (myid == root) {
+		endwtime = MPI_Wtime();
+		fprintf(stderr, "wall clock time = %f\n", endwtime - startwtime);
+		fflush(stdout);
+	}
+	MPI_Finalize();
+	return 0;
+}
+
+*/
+
+//третья лаба 1 варик
+/*
+#include <stdio.h>
+#include <math.h>
+#include <stdlib.h>
+#include <iostream>
+#include <ctime>
+#include <mpi.h>
+using namespace std;
+int command = 0;
+#define root 0
+static int gsize, myid;
+#define N 3
+#define M 10
+void initArrayNew(int8_t* a, int id) {
+	for (int i = 0; i < M; i++) {
+		if (id >= gsize - 1) { //если у нас кратный К элемент, то его надо бы сделать пустотны
+			a[i] = 11111;//создаем пустотный элемент
+		}
+		else {
+			a[i] = rand() % 20;
+		}
+	}
+}
+void initArrayDouble(int8_t* a) {
+	for (int i = 0; i < M; i++)
+	{
+		a[i] = rand() % 20;
+	}
+}
+void printArray(int8_t* a, int m) {
+	printf("%d)Process %d Massiv:", command, myid);
+	command++;
+	printf("[ ");
+	for (int i = 0; i < m; i++) {
+		if (a[i] != 11111) {
+			printf("%u ", a[i]);
+		}
+		else {
+			printf("NOPE ");
+		}
+	}
+	printf("]\n");
+}
+void sort(int8_t* a) {
+	// Сортировка массива пузырьком
+	for (int i = 0; i < M - 1; i++) {
+		for (int j = 0; j < M - i - 1; j++) {
+			if (a[j] < a[j + 1]) {
+				// меняем элементы местами
+				unsigned int temp = a[j];
+				a[j] = a[j + 1];
+				a[j + 1] = temp;
+			}
+		}
+	}
+}
+
+
+int main(int argc, char* argv[])
+{
+	int kolvo_str;
+	int s = 0; //суммарное количество ячеек + используется при подсчете, как распределить память между процессами
+	int8_t sendbuf[N][M];
+	int8_t * rbuf;
+	int stride, * displs, * scounts; //размерность для каждого процесса (если M кратно N) //массив значений первого элемента для каждого процесса // массив количества ячеек для каждого процесса
+	int namelen;
+	char processor_name[MPI_MAX_PROCESSOR_NAME];
+	MPI_Init(&argc, &argv);
+	MPI_Comm_size(MPI_COMM_WORLD, &gsize);
+	displs = (int*)malloc(gsize * sizeof(int));//начальный первый индекс для каждого процесса
+	scounts = (int*)malloc(gsize * sizeof(int));//показывает количество элементов в каждом процессе
+	MPI_Comm_rank(MPI_COMM_WORLD, &myid);
+	MPI_Get_processor_name(processor_name, &namelen);
+	//gsize = 2;
+	int k = N / gsize; //определяем по скольку ячеек выдать каждому процессу
+	int l = N % gsize; //остаток ячеек, котоырй надо разделить между процессами
+	if ((l > 0) && (k > 0)) {//если остаток имеется и у нас хоть раз поделилось, то разделим между процессами
+		for (int i = 0; i < gsize; i++) { //раздаем всем процесса по k элементов
+			scounts[i] = k;
+			displs[i] = i * k;
+		}
+		for (int i = 0; i < l; i++) {//первым процессам раздаем остаток
+			scounts[i]++;
+		}
+		displs[0] = 0;//пересчитываем диапазон начального элемента для каждого процесса
+		for (int i = 0; i < gsize - 1; i++) {
+			s = s + scounts[i];
+			displs[i + 1] = s;
+		}
+		s = M * scounts[myid];//s + scounts[gsize - 1];//M
+	}
+	else if ((l > 0) && (k == 0)) { //когда количество ячеек меньше количества процессов
+		for (int i = 0; i < gsize; i++) { //раздаем всем процесса по k элементов
+			scounts[i] = 1; //раздаем всем по 1
+			displs[i] = i;
+		}
+
+		s = M; //N gsize
+	}
+	else if (l == 0) {//если у нас нет остатка, то есть всем по k
+		stride = k;
+		for (int i = 0; i < gsize; ++i) {
+			scounts[i] = k;
+			displs[i] = i * k;
+		}
+		s = k * gsize * M;
+	}
+
+	if (myid < N) {
+		kolvo_str = scounts[myid];
+	}
+	else {
+		kolvo_str = 0;
+	}
+	//printf("id  %d kolvo_str %d:\n", myid, kolvo_str);
+	fflush(stdout);
+	//int MPI_BARRIER(MPI_COMM_WORLD);
+
+	if (myid == 0) {
+		printf("%d)Process %d on %s The original Massiv:\n", command, myid, processor_name);
+		fflush(stdout);
+		command++;
+		if (((l > 0) && (k > 0))) {
+			for (int i = 0; i < N; ++i) {
+				initArrayDouble(sendbuf[i]);
+				printf("Original Massiv:");
+				printArray(sendbuf[i], M);
+				fflush(stdout);
+			}
+		}
+		if (((l > 0) && (k == 0))) {
+			for (int i = 0; i < N; ++i) {
+				initArrayNew(sendbuf[i], i);
+				printArray(sendbuf[i], M);
+				fflush(stdout);
+			}
+		}
+		if (l == 0) {
+			for (int i = 0; i < N; ++i) {
+				initArrayDouble(sendbuf[i]);
+				printArray(sendbuf[i], M);
+				fflush(stdout);
+			}
+		}
+		for (int i = 0; i < gsize; ++i) {
+			scounts[i] *= M;
+			displs[i] *= M;
+		}
+		printf("%d)Process %d on %s distribution of array\n", command, myid, processor_name);
+	}
+	//getchar();
+	rbuf = (int8_t*)malloc(s * sizeof(int8_t));
+	MPI_Scatterv(sendbuf, scounts, displs, MPI_BYTE, rbuf, s, MPI_SHORT, root, MPI_COMM_WORLD);
+	fflush(stdout);
+	int MPI_BARRIER(MPI_COMM_WORLD);
+	for (int i = 0; i < kolvo_str; ++i) {
+		//printf("id %d kolvo_str %d:\n", myid, kolvo_str);
+		printArray(&rbuf[i * M], M);
+	}
+	fflush(stdout);
+	int MPI_BARRIER2(MPI_COMM_WORLD);
+
+	for (int i = 0; i < kolvo_str; ++i) {
+		sort(&rbuf[i * M]);
+	}
+	fflush(stdout);
+	int MPI_BARRIER3(MPI_COMM_WORLD);
+	if (myid == 0) {
+		printf("New Massiv:\n");
+	}
+
+	int MPI_BARRIER4(MPI_COMM_WORLD);
+
+	for (int i = 0; i < kolvo_str; ++i) {
+		printf("New_m:");
+		printArray(&rbuf[i * M], M);
+		command++;
+	}
+
+	MPI_Finalize();
+	return 0;
+}
+*/
+
+
+/*
+int main(int argc, char* argv[]) {
+	long int* rbuf;
+	long int* sendbuf;
+	int namelen;
+	double startwtime = 0.0, endwtime;
+	char processor_name[MPI_MAX_PROCESSOR_NAME];
+	MPI_Init(&argc, &argv);
+	MPI_Comm_size(MPI_COMM_WORLD, &gsize);
+	MPI_Comm_rank(MPI_COMM_WORLD, &myid);
+	MPI_Get_processor_name(processor_name, &namelen);
+	printf("Process %d on %s\n", myid, processor_name);
+	sendbuf = (long int*)malloc(M * sizeof(long int));
+	initArray(sendbuf, M);
+	printf("Massiv: ");
+	printArray(sendbuf, M);
+	if (myid == root) {
+		startwtime = MPI_Wtime();
+	}
+	rbuf = (long int*)malloc(M * sizeof(long int));
+	MPI_Reduce(sendbuf, rbuf, M, MPI_LONG, MPI_BAND, root, MPI_COMM_WORLD);
+	
+	if (myid == root) {
+		printf("\nResult Massiv: ");
+		printArray(rbuf, M);
+	}
+	fflush(stdout);
+	if (myid == 0) {
+		endwtime = MPI_Wtime();
+		fprintf(stderr, "wall clock time = %f\n", endwtime - startwtime);
+		fflush(stdout);
+	}
+	MPI_Finalize();
+	return 0;
+}
+*/
+
+
+//Третья лаба 16 вариант праивльная версия в ВООРДЕ
+
+#include <stdio.h>
+#include <math.h>
+#include <stdlib.h>
+#include <iostream>
+#include <ctime>
+#include <mpi.h>
+using namespace std;
+int command = 0;
+#define root 0
+static int gsize, myid;
+#define N 2
+#define M 4
+void initArrayNew(long int* a, int id) {
+	for (int i = 0; i < M; i++) {
+		if (id >= gsize - 1) { //если у нас кратный К элемент, то его надо бы сделать пустотны
+			a[i] = 11111;//создаем пустотный элемент
+		}
+		else {
+			a[i] = rand() % 20;
+		}
+	}
+}
+void initArrayDouble(long int* a) {
+	for (int i = 0; i < M; i++)
+	{
+		a[i] = rand() % 20;
+	}
+}
+void printArray(long int* a, int m) {
+	printf("%d)Process %d Massiv:", command, myid);
+	command++;
+	printf("[ ");
+	for (int i = 0; i < m; i++) {
+		if (a[i] != 11111) {
+			printf("%u ", a[i]);
+		}
+		else {
+			printf("NOPE ");
+		}
+	}
+	printf("]\n");
+}
+void sort(long int* a) {
+	// Сортировка массива пузырьком
+	for (int i = 0; i < M - 1; i++) {
+		for (int j = 0; j < M - i - 1; j++) {
+			if (a[j] < a[j + 1]) {
+				// меняем элементы местами
+				long int temp = a[j];
+				a[j] = a[j + 1];
+				a[j + 1] = temp;
+			}
+		}
+	}
+}
+
+
+int main(int argc, char* argv[])
+{
+	int kolvo_str;
+	int s = 0; //суммарное количество ячеек + используется при подсчете, как распределить память между процессами
+	long int sendbuf[N][M];
+	long int* rbuf;
+	int stride, * displs, * scounts; //размерность для каждого процесса (если M кратно N) //массив значений первого элемента для каждого процесса // массив количества ячеек для каждого процесса
+	int namelen;
+	char processor_name[MPI_MAX_PROCESSOR_NAME];
+	MPI_Init(&argc, &argv);
+	MPI_Comm_size(MPI_COMM_WORLD, &gsize);
+	displs = (int*)malloc(gsize * sizeof(int));//начальный первый индекс для каждого процесса
+	scounts = (int*)malloc(gsize * sizeof(int));//показывает количество элементов в каждом процессе
+	MPI_Comm_rank(MPI_COMM_WORLD, &myid);
+	MPI_Get_processor_name(processor_name, &namelen);
+	gsize = 4;
+
+	int k = N / gsize; //определяем по скольку ячеек выдать каждому процессу
+	int l = N % gsize; //остаток ячеек, котоырй надо разделить между процессами
+	if ((l > 0) && (k > 0)) {//если остаток имеется и у нас хоть раз поделилось, то разделим между процессами
+		for (int i = 0; i < gsize; i++) { //раздаем всем процесса по k элементов
+			scounts[i] = k;
+			displs[i] = i * k;
+		}
+		for (int i = 0; i < l; i++) {//первым процессам раздаем остаток
+			scounts[i]++;
+		}
+		displs[0] = 0;//пересчитываем диапазон начального элемента для каждого процесса
+		for (int i = 0; i < gsize - 1; i++) {
+			s = s + scounts[i];
+			displs[i + 1] = s;
+		}
+		s = M * scounts[myid];//s + scounts[gsize - 1];//M
+		/*if (myid == 0) {
+			if (s == N) {
+				printf("Distribution successful\n");
+				fflush(stdout);
+			}
+			else {
+				printf("Distribution failed\n");
+				fflush(stdout);
+				MPI_Finalize();//заменить
+				return 0;
+			}
+		}*/
+	}
+	else if ((l > 0) && (k == 0)) { //когда количество ячеек меньше количества процессов
+	for (int i = 0; i < gsize; i++) { //раздаем всем процесса по k элементов
+		if (i < N) {
+			scounts[i] = 1; //раздаем всем по 1
+			displs[i] = i;
+		}
+		else {
+			scounts[i] = 0; //раздаем всем по 1
+			displs[i] = scounts[i];
+		}
+	}
+	/*for (int i = N; i < gsize; i++) { //раздаем всем процесса по k элементов
+		scounts[i] = 0; //раздаем всем по 1
+		displs[i] = displs[N-1];
+	}*/
+	s = M; //N gsize
+	}
+	else if (l == 0) {//если у нас нет остатка, то есть всем по k
+
+	for (int i = 0; i < gsize; ++i) {
+		scounts[i] = k;
+		displs[i] = i * k;
+	}
+	s = k * gsize * M;
+	}
+
+	/*if (myid < N) {
+		kolvo_str = scounts[myid];
+	}
+	else {
+		kolvo_str = 0;
+	}*/
+	//printf("id  %d kolvo_str %d:\n", myid, kolvo_str);
+	fflush(stdout);
+	//int MPI_BARRIER(MPI_COMM_WORLD);
+	printf("%d)Process %d on %s distribution of array\n", command, myid, processor_name);
+
+	if (myid == 0) {
+		printf("%d)Process %d on %s The original Massiv:\n", command, myid, processor_name);
+		fflush(stdout);
+		command++;
+		if (((l > 0) && (k > 0))) {
+			for (int i = 0; i < N; ++i) {
+				initArrayDouble(sendbuf[i]);
+				printf("Original Massiv:");
+				printArray(sendbuf[i], M);
+				fflush(stdout);
+			}
+		}
+		if (((l > 0) && (k == 0))) {
+			for (int i = 0; i < N; ++i) {
+				initArrayNew(sendbuf[i], i);
+				printArray(sendbuf[i], M);
+				fflush(stdout);
+			}
+		}
+		if (l == 0) {
+			for (int i = 0; i < N; ++i) {
+				initArrayDouble(sendbuf[i]);
+				printArray(sendbuf[i], M);
+				fflush(stdout);
+			}
+		}
+		for (int i = 0; i < gsize; ++i) {
+			scounts[i] *= M;
+			displs[i] *= M;
+		}
+		printf("%d)Process %d on %s distribution of array\n", command, myid, processor_name);
+	}
+	if (myid== root) {
+		for (int i = 0; i < gsize; i++) {
+			printf("1)id = %d, scount[%d] = %d, displs = %d\n", myid,i, scounts[i], displs[i]);
+			fflush(stdout);
+		}
+		//MPI_Barrier(MPI_Comm MPI_COMM_WORLD);
+
+		for (int i = 0; i < scounts[0]/M; i++)
+		{
+			int min = gsize*M*N;
+			int index = 1;
+			for (int j = 1; j < gsize; j++) {
+				if (scounts[j] < min) {
+					min = scounts[j];
+					index = j;
+				}
+			}
+			scounts[index]+=M;
+		}
+		scounts[0] = 0;
+		displs[0] = 0;
+		for (int i = 0; i < gsize; i++) {
+			printf("2)id = %d, scount[%d] = %d, displs = %d\n", myid, i, scounts[i], displs[i]);
+			fflush(stdout);
+		}
+		//MPI_Barrier(MPI_Comm MPI_COMM_WORLD);
+
+		
+		for (int i = 1; i < gsize; i++) {
+			displs[i] = displs[i - 1] + scounts[i-1];
+			printf("\t3)id = %d, scount[%d] = %d, displs = %d\n", myid, i, scounts[i], displs[i]);
+			fflush(stdout);
+		}
+	}
+	printf("%d)Process %d on %s distribution of array\n", command, myid, processor_name);
+
+	//MPI_Barrier(MPI_Comm MPI_COMM_WORLD);
+	/*if (scounts[myid] > 0) {
+		kolvo_str = 1;
+		printf("id %d--------------1\n",myid);
+	}
+	else {
+		kolvo_str = 0;
+		printf("id %d %d--------------0\n", myid, scounts[myid]);
+
+	}
+	printf("id %d kolvo_str %d\n", myid, kolvo_str);
+	fflush(stdout);*/
+
+
+	rbuf = (long int*)malloc(s *100* sizeof(long int));
+	MPI_Scatterv(sendbuf, scounts, displs, MPI_LONG, rbuf, s, MPI_LONG, root, MPI_COMM_WORLD);
+
+	//	MPI_Barrier(MPI_Comm MPI_COMM_WORLD);
+	printf("%d)Process %d on %s distribution of array\n", command, myid, processor_name);
+
+	for (int i = 0; i < scounts[myid]/M+5; ++i) {
+		//printArray(&rbuf[i * M], M);
+		fflush(stdout);
+	}
+
+	/*
+	for (int i = 0; i < kolvo_str; ++i) {
+		sort(&rbuf[i * M]);
+	}
+	fflush(stdout);
+	int MPI_BARRIER3(MPI_COMM_WORLD)
+
+	if (myid == 0) {
+		printf("New Massiv:\n");
+	}
+
+	int MPI_BARRIER4(MPI_COMM_WORLD);
+
+	for (int i = 0; i < kolvo_str; ++i) {
+		printf("New_m:");
+		printArray(&rbuf[i * M], M);
+		command++;
+	}
+	*/
+	MPI_Finalize();
+	return 0;
+}

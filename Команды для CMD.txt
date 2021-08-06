@@ -1,0 +1,10 @@
+запуск вижл 2019
+cd C:\Users\Admin\source\repos\MPI_LABS\Debug
+mpiexec.exe -n 4 MPI_LABS
+
+запуск вижл 2015
+cd C:\Users\Admin\Documents\Visual Studio 2015\Projects\MPITest\Debug
+mpiexec.exe -n 4 MPITest.exe
+
+//полезный сайт
+http://rsusu1.rnd.runnet.ru/tutor/method/m2/page11.html
